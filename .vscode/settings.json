@@ -2,6 +2,7 @@
     "rust-analyzer.diagnostics.useRustcErrorCode": true,
     "rust-analyzer.showUnlinkedFileNotification": false,
     "cSpell.words": [
+        "bincode",
         "dotenv",
         "dotenvy",
         "Followup"
