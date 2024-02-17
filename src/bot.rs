@@ -1,9 +1,8 @@
-use crate::event_handler::BotEvents;
-use dotenvy::dotenv;
-use error_stack::{Context, Result, ResultExt};
+use crate::{config::ConfigFile, event_handler::BotEvents};
+use error_stack::{Context, Report, Result, ResultExt};
 use serenity::{all::GatewayIntents, Client};
-use std::{env, fmt};
-use tracing::{info, trace, warn, error};
+use std::fmt;
+use tracing::{info, trace};
 
 #[derive(Debug)]
 pub struct BotStartError;
@@ -17,19 +16,16 @@ impl fmt::Display for BotStartError {
 impl Context for BotStartError {}
 
 pub async fn start() -> Result<(), BotStartError> {
-    if let Err(e) = dotenv() {
-        info!("No .env file found or failed to read .env file");
-        error!("dotenvy error: {}", e);
-        warn!("Ensure environment variables are set in shell")
-    }
+    trace!("Reading config file :3");
+    let config = ConfigFile::read().map_err(|e| {
+        Report::from(e)
+            .attach_printable("Failed to read config file.")
+            .change_context(BotStartError)
+    })?;
 
-    trace!("Reading DISCORD_TOKEN from environment variables");
+    let token = config.discord_token;
 
-    let token = env::var("DISCORD_TOKEN")
-        .change_context(BotStartError)
-        .attach_printable("Failed to read DISCORD_TOKEN from environment variables")?;
-
-    trace!("Read DISCORD_TOKEN from environment variables: {}", token);
+    trace!("Read DISCORD_TOKEN from config file: {}", token);
 
     let gateway_intents = GatewayIntents::non_privileged()
         | GatewayIntents::MESSAGE_CONTENT

@@ -1,14 +1,13 @@
-use crate::hash_string::HashedString;
-use bincode::{config, Decode, Encode};
 use error_stack::{Context, Report, Result};
+use serde::{Deserialize, Serialize};
 use std::{fmt, fs};
 
-static CONFIG_FILE_NAME: &'static str = "bot.config";
+static CONFIG_FILE_NAME: &'static str = "config.toml";
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ConfigFile {
-    discord_token: HashedString,
-    guilds: Vec<i64>,
+    pub discord_token: String,
+    pub guilds: Vec<i64>,
 }
 
 #[derive(Debug)]
@@ -23,23 +22,21 @@ impl fmt::Display for ConfigFileError {
 impl Context for ConfigFileError {}
 
 impl ConfigFile {
-    pub fn new<T: Into<String>>(token: T, guilds: Vec<i64>) -> Self {
+    pub fn new(token: String, guilds: Vec<i64>) -> Self {
         Self {
-            discord_token: HashedString::new(token.into()),
+            discord_token: token,
             guilds,
         }
     }
 
     pub fn write(&self) -> Result<(), ConfigFileError> {
-        let config = config::standard();
-
-        let vec_encoded = bincode::encode_to_vec(&self, config).map_err(|e| {
+        let encoded_toml = toml::to_string(self).map_err(|e| {
             Report::from(e)
                 .attach_printable("Failed to encode config")
                 .change_context(ConfigFileError)
         })?;
 
-        fs::write(format!("./{}", CONFIG_FILE_NAME), vec_encoded).map_err(|e| {
+        fs::write(format!("./{}", CONFIG_FILE_NAME), encoded_toml).map_err(|e| {
             Report::from(e)
                 .attach_printable("Failed to write encoded config file")
                 .change_context(ConfigFileError)
@@ -49,18 +46,24 @@ impl ConfigFile {
     }
 
     pub fn read() -> Result<ConfigFile, ConfigFileError> {
-        let config = config::standard();
-
         let config_file = fs::read(format!("./{}", CONFIG_FILE_NAME)).map_err(|e| {
             Report::from(e)
-                .attach_printable("Failed to read config file (./bot.config)")
+                .attach_printable("Failed to read config file (./config.toml)")
                 .change_context(ConfigFileError)
         })?;
 
-        let (decoded_config, _bytes): (ConfigFile, usize) =
-            bincode::decode_from_slice(&config_file, config).map_err(|e| {
+        let encoded_config_file = String::from_utf8(config_file).map_err(|e| {
+            Report::from(e)
+                .attach_printable(
+                    "Failed to encode config file to UTF-8 (Ensure their is no unicode)",
+                )
+                .change_context(ConfigFileError)
+        })?;
+
+        let decoded_config: ConfigFile =
+            toml::from_str(encoded_config_file.as_str()).map_err(|e| {
                 Report::from(e)
-                    .attach_printable("Failed to decode config file. It is likely corrupt.")
+                    .attach_printable("Failed to decode config file. Its likely invalid.")
                     .change_context(ConfigFileError)
             })?;
 
