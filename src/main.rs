@@ -65,11 +65,13 @@ async fn main() -> Result<(), ApplicationInitialisationError> {
                 }
             };
 
-            let config = config::ConfigFile::new(token, vec![1110009506391404616]);
+            let config = config::ConfigFile::new(token.clone(), vec![1110009506391404616]);
 
             config
                 .write()
                 .change_context(ApplicationInitialisationError)?;
+
+            println!("{:?}", config::ConfigFile::read().unwrap());
         }
         _ => unreachable!(),
     }
